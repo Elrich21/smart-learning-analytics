@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from datetime import date
 
 
 class UserCreate(BaseModel):
@@ -28,3 +29,23 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+class StudySessionCreate(BaseModel):
+    course_id: int
+    duration_minutes: int
+    study_method: str
+    focus_score: int
+    time_of_day: str
+    session_date: date
+
+class StudySessionResponse(BaseModel):
+    session_id: int
+    course_id: int
+    duration_minutes: int
+    study_method: str
+    focus_score: int
+    time_of_day: str
+    session_date: date
+
+    class Config:
+        from_attributes = True

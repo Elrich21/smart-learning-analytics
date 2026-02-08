@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 security = HTTPBearer()
@@ -18,7 +18,7 @@ from .auth import (
 )
 from .schemas import LoginRequest, TokenResponse
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+security = HTTPBearer()
 
 app = FastAPI(title="Smart Learning Analytics Platform")
 
@@ -73,9 +73,6 @@ def get_current_user(
     db: Session = Depends(get_db),
 ):
     token = credentials.credentials
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    email = payload.get("sub")
-
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
@@ -94,3 +91,26 @@ def get_current_user(
 @app.get("/me", response_model=schemas.UserResponse, tags=["Users"])
 def read_current_user(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@app.post("/study-sessions", response_model=schemas.StudySessionResponse, tags=["Analytics"])
+def create_study_session(
+    session: schemas.StudySessionCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_session = models.StudySession(
+        user_id=current_user.user_id,
+        course_id=session.course_id,
+        duration_minutes=session.duration_minutes,
+        study_method=session.study_method,
+        focus_score=session.focus_score,
+        time_of_day=session.time_of_day,
+        session_date=session.session_date,
+    )
+
+    db.add(new_session)
+    db.commit()
+    db.refresh(new_session)
+
+    return new_session
