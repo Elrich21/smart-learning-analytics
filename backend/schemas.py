@@ -49,3 +49,16 @@ class StudySessionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AnalyticsSummary(BaseModel):
+    total_minutes: int
+    average_focus: float
+    active_days: int
+
+
+class CourseAnalytics(BaseModel):
+    course_id: int
+    total_minutes: int
+    average_focus: float
+

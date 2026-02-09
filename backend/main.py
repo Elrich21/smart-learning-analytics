@@ -2,6 +2,9 @@ from fastapi import FastAPI, Depends, HTTPException
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from sqlalchemy import func
+
+
 security = HTTPBearer()
 
 from sqlalchemy.orm import Session
@@ -114,3 +117,59 @@ def create_study_session(
     db.refresh(new_session)
 
     return new_session
+
+@app.get("/analytics/summary", response_model=schemas.AnalyticsSummary, tags=["Analytics"])
+def analytics_summary(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    total_minutes = (
+        db.query(func.coalesce(func.sum(models.StudySession.duration_minutes), 0))
+        .filter(models.StudySession.user_id == current_user.user_id)
+        .scalar()
+    )
+
+    avg_focus = (
+        db.query(func.avg(models.StudySession.focus_score))
+        .filter(models.StudySession.user_id == current_user.user_id)
+        .scalar()
+    )
+
+    active_days = (
+        db.query(func.count(func.distinct(models.StudySession.session_date)))
+        .filter(models.StudySession.user_id == current_user.user_id)
+        .scalar()
+    )
+
+    return {
+        "total_minutes": int(total_minutes),
+        "average_focus": float(avg_focus) if avg_focus is not None else 0.0,
+        "active_days": int(active_days),
+    }
+
+
+@app.get("/analytics/by-course", response_model=list[schemas.CourseAnalytics], tags=["Analytics"])
+def analytics_by_course(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            models.StudySession.course_id,
+            func.sum(models.StudySession.duration_minutes).label("total_minutes"),
+            func.avg(models.StudySession.focus_score).label("average_focus"),
+        )
+        .filter(models.StudySession.user_id == current_user.user_id)
+        .group_by(models.StudySession.course_id)
+        .all()
+    )
+
+    return [
+        {
+            "course_id": r.course_id,
+            "total_minutes": int(r.total_minutes),
+            "average_focus": float(r.average_focus),
+        }
+        for r in rows
+    ]
+
